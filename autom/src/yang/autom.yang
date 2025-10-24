@@ -1,5 +1,5 @@
 module autom {
-
+  yang-version 1.1;
   namespace "http://cx.cisco.com/autom";
   prefix autom;
 
@@ -21,6 +21,11 @@ module autom {
       "Initial revision.";
   }
   grouping keywords {
+    leaf datetime {
+      description "Use date and timestamped folders for generated test case files";
+      tailf:info "Use date and timestamped folders for generated test case files";
+      type empty;
+    }
     leaf no-networking {
       description "Note: Will not verify configuration actually pushed to devices";
       tailf:info "Generate Unit Testing files without impacting service config pushed to devices";
@@ -76,17 +81,31 @@ module autom {
             description "Use all service instances to generate test cases";
             type empty;
           }
-          leaf-list service-instance {
+          leaf service-instance {
             tailf:info "Input full service instance in keypath format (list in [])";
             description "Input full service instance in keypath format (list in [])";
             type string;
           }
         }
+        leaf service-config-modify-payload-xml {
+          when '../service-instance' {
+            description "Service Config Modify Payload is only valid when a single service instance is specified";
+          }
+          tailf:info "Optional Service Config Modify Payload XML file (for modify-variation test cases)";
+          description "Optional Service Config Modify Payload XML file (for modify-variation test cases)";
+          type dir-path-t;
+          tailf:cli-completion-actionpoint dir-path-comp;
+        }
         uses keywords;
         leaf packages-folder-path {
-          tailf:info "Path to the folder where the packages are stored";
-          description "Path to the folder where the packages are stored";
-          mandatory true;
+          tailf:info "Path to the folder where the packages are stored (if not specified, output-path must be used)";
+          description "Path to the folder where the packages are stored (if not specified, output-path must be used)";
+          type dir-path-t;
+          tailf:cli-completion-actionpoint dir-path-comp;
+        }
+        leaf output-path {
+          tailf:info "Path to output generated test case files (if not specified, packages-folder-path must be used)";
+          description "Path to output generated test case files (if not specified, packages-folder-path must be used)";
           type dir-path-t;
           tailf:cli-completion-actionpoint dir-path-comp;
         }

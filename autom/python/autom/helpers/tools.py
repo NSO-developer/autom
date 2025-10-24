@@ -112,52 +112,6 @@ def save_configuration(sock_maapi, th, conf_type, keypath, config_file,
             ssocket.close()
             file.close()
 
-def get_lstatus_exec_rc_string_for_device(uinfo, device_name):
-    """
-    For a limited supported type of devices (NED) - read the
-    device configuration by remote execution of a given command
-    (e.g. any command)
-    Currently supports:
-      * Cisco IOS (cli NED)
-      * Cisco IOS-XR (cli NED)
-      * Cisco NX (cli NED)
-      * Juniper (NETCONF NED)
-    To extend this list, use the rpc request shell execute for netconf devices,
-    live-status exec show for CLI based devices. If the device doesn't support
-    neither of RPC call for showing the configuration nor live-status execution,
-    contact Cisco support to extend the feature set of the NED.
-
-    input: self, transaction, device_name
-    returns the actual configuration of the device
-    """
-    with ncs.maapi.Maapi() as m, ncs.maapi.Session(
-            m, uinfo.username, 'system'), m.start_read_trans() as t:
-        root = ncs.maagic.get_root(t)
-        device = root.devices.device[device_name]
-        d_type = device.device_type
-
-        if d_type.cli.ned_id is not None and "cisco-ios-" in d_type.cli.ned_id:
-            return ["/live-status/tailf-ned-cisco-ios-stats:exec/show",
-                    "<output xmlns='http://tail-f.com/ned/cisco-ios-stats'>",
-                    "<show><args>running-config</args></show>"]
-        if d_type.cli.ned_id is not None and "cisco-iosxr-" in d_type.cli.ned_id:
-            return ["/live-status/tailf-ned-cisco-ios-xr-stats:exec/show",
-                    "<output xmlns='http://tail-f.com/ned/cisco-ios-xr-stats'>",
-                    "<show><args>running-config</args></show>"]
-        if d_type.cli.ned_id is not None and "cisco-nx-" in d_type.cli.ned_id:
-            return ["/live-status/tailf-ned-cisco-nx-stats:exec/show",
-                    "<output xmlns='http://tail-f.com/ned/cisco-nx/stats'>",
-                    "<show><args>running-config</args></show>"]
-        if d_type.netconf.ned_id is not None and "juniper-junos-" in d_type.netconf.ned_id:
-            return ["/rpc/rpc-request-shell-execute/",
-                    "<output xmlns='http://tail-f.com/ned/juniper-junos/rpc'>",
-                    "<input><args>cli show running-config</args></input>"]
-        if d_type.netconf.ned_id is not None and "cisco-iosxr-nc-" in d_type.netconf.ned_id:
-            return ["/rpc/rpc-get-config/get-config",
-                    "<output xmlns='http://tail-f.com/ns/ned-id/cisco-iosxr-nc/rpc'>",
-                    "<source><running/></source>"]
-        return ["Device type is not currently supported"]
-
 def get_config_from_device(trans, device_name):
     """
     For a limited supported type of devices (NED) - read the

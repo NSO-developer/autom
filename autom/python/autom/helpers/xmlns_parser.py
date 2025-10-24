@@ -1,6 +1,6 @@
 # -*- mode: python; python-indent: 4 -*-
 """
-NSO-ARC helpers xmlns_parser
+Autom helpers xmlns_parser
 """
 import xml.etree.ElementTree as ET
 

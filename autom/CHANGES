@@ -2,6 +2,12 @@
  AUTOM Change Log
 =====================================
 
+Version 1.0
+ Additions:
+ - Modify workflow added for a single service-instance type input, use service-config-modify-payload-xml to point to the XML file with modified service_config.xml
+ - Refactored capture_config
+ - Optional output-path OR packages-folder-path for choice of either a directory of choosing or placing the tests under the packages/package-name/test folders
+
 Version 0.4
   Additions:
   - Added comparison of get-modifications (previously only cdb-diff dry-run output was compared)

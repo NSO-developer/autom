@@ -74,6 +74,13 @@ class AutomCreateAction(Action):
         top_level_svc = []
         no_networking = False
         test_in_isolation = False
+        output_path = ""
+        if input.output_path:
+            output_path = input.output_path
+        elif input.packages_folder_path:
+            output_path = input.packages_folder_path
+        else:
+            output_path = folder_path
         if input.no_networking:
             no_networking = True
         if input.test_in_isolation:
@@ -81,42 +88,50 @@ class AutomCreateAction(Action):
         dry_run = False
         if input.dry_run:
             dry_run = True
+        if input.datetime:
+            date_time = True
+
+        else:
+            date_time = False
+        
+        service_config_modify = ""
+        if input.service_config_modify_payload_xml:
+            service_config_modify = input.service_config_modify_payload_xml
         services_list = get_services_check_sync_result(self, root)
-        index = 1
         # If specific service instance keypaths is chosen as the
         #     input (list):
         parent_services = []
         child_services = []
         regular_services = []
         top_level_services = []
-        if len(input.service_instance) > 0:
-             child_services, parent_services, regular_services, top_level_services, services_xpath = get_service_keypaths(self,
+        if input.service_instance:
+            child_services, parent_services, regular_services, top_level_services, services_xpath = get_service_keypaths(self.log,
                                      uinfo,
                                      services_list, input.ignore_xpaths)
-             self.log.info("All Parent services : %s " % parent_services)
-             self.log.info("All Child services : %s " % child_services)
-             self.log.info("All Regular services: %s " % regular_services)
-             for path in input.service_instance:
-                 keypath_node = ncs.maagic.get_node(trans, path)
-                 if keypath_node._path in child_services:
-                     child_svc.append(keypath_node._path)
-                 if keypath_node._path in parent_services:
-                     parent_svc.append(keypath_node._path)
-                 if keypath_node._path in regular_services:
-                     regular_svc.append(keypath_node._path)
-                 if keypath_node._path in top_level_services:
-                     top_level_svc.append(keypath_node._path)
+            self.log.info("All Parent services : %s " % parent_services)
+            self.log.info("All Child services : %s " % child_services)
+            self.log.info("All Regular services: %s " % regular_services)
+             
+            keypath_node = ncs.maagic.get_node(trans, input.service_instance)
+            if keypath_node._path in child_services:
+                child_svc.append(keypath_node._path)
+            if keypath_node._path in parent_services:
+                parent_svc.append(keypath_node._path)
+            if keypath_node._path in regular_services:
+                regular_svc.append(keypath_node._path)
+            if keypath_node._path in top_level_services:
+                top_level_svc.append(keypath_node._path)
 
-             child_services = child_svc
-             parent_services = parent_svc
-             regular_services = regular_svc
-             top_level_services = top_level_svc
+            child_services = child_svc
+            parent_services = parent_svc
+            regular_services = regular_svc
+            top_level_services = top_level_svc
              
         # Below code handles both ALL service instances and
         # specific chosen servicepoints services check-sync
         # returns a list of all service instances with their xpath
         else:
-            child_services, parent_services, regular_services, top_level_services, services_xpath = get_service_keypaths(self,
+            child_services, parent_services, regular_services, top_level_services, services_xpath = get_service_keypaths(self.log,
                                     uinfo,
                                     services_list, input.ignore_xpaths)
         # By default (boolean exclude-children) the child services of
@@ -140,30 +155,63 @@ class AutomCreateAction(Action):
 
         if test_in_isolation==True:
             for service_keypath in top_level_services:
-                result, service_config_file_xml, files = capture_config(self,
-                    uinfo, folder_path, input.packages_folder_path,
+                result, service_config_file_xml, files = capture_config(self.log,
+                    uinfo, folder_path, output_path,
                     service_keypath, current_date_time, no_networking,
                     True, input.include_children, parent_services,
                     regular_services, child_services, top_level_services,
                     services_list, services_xpath, input.pre_config_devices,
-                    input.pre_config_cdb, [], False, False)
+                    input.pre_config_cdb, [], date_time, False,
+                    None)
             for service_keypath in regular_services:
-                result, service_config_file_xml, files = capture_config(self,
-                    uinfo, folder_path, input.packages_folder_path,
+                result, service_config_file_xml, files = capture_config(self.log,
+                    uinfo, folder_path, output_path,
                     service_keypath, current_date_time, no_networking,
                     True, input.include_children, parent_services,
                     regular_services, child_services, top_level_services,
                     services_list, services_xpath, input.pre_config_devices,
-                    input.pre_config_cdb, [], False, False)
+                    input.pre_config_cdb, [], date_time, False,
+                    None)
         else:
             for service_keypath in all_services:
-                result, service_config_file_xml, files = capture_config(self,
-                    uinfo, folder_path, input.packages_folder_path,
+                result, service_config_file_xml, files = capture_config(self.log,
+                    uinfo, folder_path, output_path,
                     service_keypath, current_date_time, no_networking,
                     False, input.include_children, parent_services,
                     regular_services, child_services, top_level_services,
                     services_list, services_xpath, input.pre_config_devices,
-                    input.pre_config_cdb, [], False, False)              
+                    input.pre_config_cdb, [], date_time, False,
+                    None)
+        if len(service_config_modify) > 0 and len(all_services) == 1:
+            if test_in_isolation==True:
+                for service_keypath in top_level_services:
+                    result, service_config_file_xml, files = capture_config(self.log,
+                            uinfo, folder_path, output_path,
+                            service_keypath, current_date_time, no_networking,
+                            True, input.include_children, parent_services,
+                            regular_services, child_services, top_level_services,
+                            services_list, services_xpath, input.pre_config_devices,
+                            input.pre_config_cdb, [], date_time, False,
+                            service_config_modify)
+                for service_keypath in regular_services:
+                    result, service_config_file_xml, files = capture_config(self.log,
+                            uinfo, folder_path, output_path,
+                            service_keypath, current_date_time, no_networking,
+                            True, input.include_children, parent_services,
+                            regular_services, child_services, top_level_services,
+                            services_list, services_xpath, input.pre_config_devices,
+                            input.pre_config_cdb, [], date_time, False,
+                            service_config_modify)
+            else:
+                for service_keypath in all_services:
+                    result, service_config_file_xml, files = capture_config(self.log,
+                            uinfo, folder_path, output_path,
+                            service_keypath, current_date_time, no_networking,
+                            False, input.include_children, parent_services,
+                            regular_services, child_services, top_level_services,
+                            services_list, services_xpath, input.pre_config_devices,
+                            input.pre_config_cdb, [], date_time, False,
+                            service_config_modify)
         if result == True:
             output.result = str(
                         result

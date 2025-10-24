@@ -1,3 +1,6 @@
+"""
+Autom helpers xpath
+"""
 # -*- mode: python; python-indent: 4 -*-
 import ncs
 import _ncs

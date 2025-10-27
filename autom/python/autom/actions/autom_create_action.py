@@ -33,7 +33,7 @@ from ..helpers.tools import (config_cli_cleanup, get_config_from_device,
 from ..helpers.utils import Folders, Trans
 from ..helpers.create_helper import (get_services_check_sync_result,
                             get_service_keypaths, _open_new_trans, _close_trans)
-from ..helpers.robot_generator import RobotTestSuite, RobotService
+
 
 class AutomCreateAction(Action):
     """
@@ -139,7 +139,7 @@ class AutomCreateAction(Action):
         # To add these for testing, the include-children must be set
         use_test = True
         self.log.info("All_services: %s " % all_services)
-        result = False
+      
         if input.include_children:
             all_services = top_level_services + parent_services + regular_services + child_services
         else:
@@ -151,20 +151,11 @@ class AutomCreateAction(Action):
                 result
             ) + ":: Failed at generating any files, input does not include children (add include_children keyword)\nWARNING: testing of child services of stacked parent services will result in unexpected errors"
             return result
-        if input.add_to_previous:
-            self.log.info("Adding generated test cases to previous test suite file if it exists")
-            add_to_previous = True
-        else:
-            add_to_previous = False
-        if input.outformat_cli_c:
-            outformat_cli_c = True
-        else:
-            outformat_cli_c = False
-        robot_services = []
-        robot_service_modify_list = []
+
+
         if test_in_isolation==True:
             for service_keypath in top_level_services:
-                service_config_file_xml, files, robot_service, robot_service_modify = capture_config(self.log,
+                result, service_config_file_xml, files = capture_config(self.log,
                     uinfo, folder_path, output_path,
                     service_keypath, current_date_time, no_networking,
                     True, input.include_children, parent_services,
@@ -172,12 +163,8 @@ class AutomCreateAction(Action):
                     services_list, services_xpath, input.pre_config_devices,
                     input.pre_config_cdb, [], date_time, False,
                     None)
-                if robot_service is not None:
-                    robot_services.append(robot_service)
-                if robot_service_modify is not None:
-                    robot_service_modify_list.append(robot_service_modify)
             for service_keypath in regular_services:
-                service_config_file_xml, files, robot_service, robot_service_modify = capture_config(self.log,
+                result, service_config_file_xml, files = capture_config(self.log,
                     uinfo, folder_path, output_path,
                     service_keypath, current_date_time, no_networking,
                     True, input.include_children, parent_services,
@@ -185,13 +172,9 @@ class AutomCreateAction(Action):
                     services_list, services_xpath, input.pre_config_devices,
                     input.pre_config_cdb, [], date_time, False,
                     None)
-                if robot_service is not None:
-                    robot_services.append(robot_service)
-                if robot_service_modify is not None:
-                    robot_service_modify_list.append(robot_service_modify)
         else:
             for service_keypath in all_services:
-                service_config_file_xml, files, robot_service, robot_service_modify = capture_config(self.log,
+                result, service_config_file_xml, files = capture_config(self.log,
                     uinfo, folder_path, output_path,
                     service_keypath, current_date_time, no_networking,
                     False, input.include_children, parent_services,
@@ -199,14 +182,10 @@ class AutomCreateAction(Action):
                     services_list, services_xpath, input.pre_config_devices,
                     input.pre_config_cdb, [], date_time, False,
                     None)
-                if robot_service is not None:
-                    robot_services.append(robot_service)
-                if robot_service_modify is not None:
-                    robot_service_modify_list.append(robot_service_modify)
         if len(service_config_modify) > 0 and len(all_services) == 1:
             if test_in_isolation==True:
                 for service_keypath in top_level_services:
-                    service_config_file_xml, files, robot_service, robot_service_modify = capture_config(self.log,
+                    result, service_config_file_xml, files = capture_config(self.log,
                             uinfo, folder_path, output_path,
                             service_keypath, current_date_time, no_networking,
                             True, input.include_children, parent_services,
@@ -214,12 +193,8 @@ class AutomCreateAction(Action):
                             services_list, services_xpath, input.pre_config_devices,
                             input.pre_config_cdb, [], date_time, False,
                             service_config_modify)
-                    if robot_service is not None:
-                        robot_services.append(robot_service)
-                    if robot_service_modify is not None:
-                        robot_service_modify_list.append(robot_service_modify)
                 for service_keypath in regular_services:
-                    service_config_file_xml, files, robot_service, robot_service_modify = capture_config(self.log,
+                    result, service_config_file_xml, files = capture_config(self.log,
                             uinfo, folder_path, output_path,
                             service_keypath, current_date_time, no_networking,
                             True, input.include_children, parent_services,
@@ -227,13 +202,9 @@ class AutomCreateAction(Action):
                             services_list, services_xpath, input.pre_config_devices,
                             input.pre_config_cdb, [], date_time, False,
                             service_config_modify)
-                    if robot_service is not None:
-                        robot_services.append(robot_service)
-                    if robot_service_modify is not None:
-                        robot_service_modify_list.append(robot_service_modify)
             else:
                 for service_keypath in all_services:
-                    service_config_file_xml, files, robot_service, robot_service_modify = capture_config(self.log,
+                    result, service_config_file_xml, files = capture_config(self.log,
                             uinfo, folder_path, output_path,
                             service_keypath, current_date_time, no_networking,
                             False, input.include_children, parent_services,
@@ -241,41 +212,6 @@ class AutomCreateAction(Action):
                             services_list, services_xpath, input.pre_config_devices,
                             input.pre_config_cdb, [], date_time, False,
                             service_config_modify)
-                    if robot_service is not None:
-                        robot_services.append(robot_service)
-                    if robot_service_modify is not None:
-                        robot_service_modify_list.append(robot_service_modify)
-        test_suite = RobotTestSuite(robot_services, robot_service_modify_list, output_path, input.environment,
-                              input.robot_filename, current_date_time, input.test_case_description,
-                              input.environment, add_to_previous, outformat_cli_c)
-        test_suite.render()
-        result = True
-        symlink_exists = False
-        if input.datetime:
-            target_symlink = '/' + input.robot_filename + '_' + current_date_time + '.robot'
-            target_file_combined = '/' + input.robot_filename +'_combined.robot'
-            if add_to_previous:
-                target_file = target_file_combined
-            else:
-                target_file = target_symlink
-            create_symlink = False
-            try:
-                os.unlink(folder_path + target_file)
-                create_symlink = True
-
-            except OSError:
-                self.log.info(
-                        target_file +" file doesn't exist, creating new symlink"
-                    )
-                create_symlink = True
-            if create_symlink:
-                os.symlink(str(input.robot_filename) + '.robot',
-                            folder_path + target_file,
-                            target_is_directory=False,
-                            dir_fd=None)
-        else:
-            self.log.info("No symlink required")
-        
         if result == True:
             output.result = str(
                         result

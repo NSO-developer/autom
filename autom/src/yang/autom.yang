@@ -64,11 +64,6 @@ module autom {
       type tailf:node-instance-identifier;
       tailf:cli-completion-actionpoint "servicepoints";
     }
-    leaf outformat-cli-c {
-      description "Output Robot Framework test cases in cli-c format (CLI-C)";
-      tailf:info "Output Robot Framework test cases in cli-c format (CLI-C)";
-      type empty;
-    }
   }
   typedef dir-path-t {
     description "Path to a directory in the filesystem.";
@@ -101,28 +96,6 @@ module autom {
           type dir-path-t;
           tailf:cli-completion-actionpoint dir-path-comp;
         }
-        leaf robot-filename {
-          tailf:info "Optional Robot Framework test suite file name (default: test_suite_<service-instance>.robot)";
-          description "Optional Robot Framework test suite file name (default: test_suite_<service-instance>.robot)";
-          type string;
-          default "nso_autom_testing";
-        }
-        leaf environment {
-          tailf:info "Optional environment name to use in the generated test case files";
-          description "Optional environment name to use in the generated test case files";
-          type enumeration {
-            enum nso_local;
-            enum pre_prod;
-            enum prod;
-          }
-          default nso_local;
-        }
-        leaf test-case-description {
-          tailf:info "Optional description to add to the generated test case files";
-          description "Optional description to add to the generated test case files";
-          type string;
-          default "AUTOM Generated CREATE/READ/UPDATE/DELETE Test Case";
-        }
         uses keywords;
         leaf packages-folder-path {
           tailf:info "Path to the folder where the packages are stored (if not specified, output-path must be used)";
@@ -135,11 +108,6 @@ module autom {
           description "Path to output generated test case files (if not specified, packages-folder-path must be used)";
           type dir-path-t;
           tailf:cli-completion-actionpoint dir-path-comp;
-        }
-        leaf add-to-previous {
-          tailf:info "Add generated test cases to previous test suite file if it exists";
-          description "Add generated test cases to previous test suite file if it exists";
-          type empty;
         }
       }
       output {

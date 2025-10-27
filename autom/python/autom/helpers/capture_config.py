@@ -2,6 +2,7 @@
 """
 Autom capture_config
 """
+from asyncio.log import logger
 from datetime import datetime
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Dict, Any
@@ -21,6 +22,7 @@ from _ncs import maapi
 import ncs
 from ncs import maagic
 from ncs.dp import Action
+from .robot_generator import RobotService
 
 # Constants for timing and configuration
 MAX_PLAN_WAIT_TIME = 100
@@ -208,9 +210,9 @@ def capture_modifications_for_service(trans: Any, uinfo: Any, kp_input: List[str
                                      files: Any) -> None:
     """Extract modification capture logic"""
     capture_modifications_cli(trans, uinfo.username, kp_input,
-                             files.get_modif_file_cli, write_to_file=True)
+                             files.get_modifications_file_cli, write_to_file=True)
     capture_modifications(trans, uinfo.username, kp_input,
-                         None, files.get_modif_file_xml, write_to_file=True)
+                         None, files.get_modifications_file_xml, write_to_file=True)
 
 def generate_dry_run_configurations(files: Any, uinfo: Any, logger: Any) -> None:
     """Generate all dry-run configuration files"""
@@ -381,8 +383,8 @@ def ensure_modify_workflow_files(files: Any) -> None:
         'service_config_modify',
         'dry_run_modify_xml', 
         'dry_run_modify_cli',
-        'get_modif_file_cli',
-        'get_modif_file_xml'
+        'get_modifications_file_cli',
+        'get_modifications_file_xml'
     ]
     
     missing_attrs = []
@@ -405,7 +407,7 @@ from ..helpers.create_helper import (dryrun_configuration_xml, dryrun_configurat
                             get_pre_config_files,
                             _open_new_trans, delete_kpath_from_cdb,
                             load_cdb_config_from_file, compare_config_devices_affected,
-                            wait_for_zombie)
+                            wait_for_zombie, get_parent)
 
 def capture_config(logger, uinfo, folder_path: str, packages_folder_path: str, service_keypath: str,
                    current_date_time: str, no_networking: bool,
@@ -536,10 +538,12 @@ def _capture_config_impl(logger, uinfo, folder_path: str, packages_folder_path: 
     output_path = files.test_folder
     plan_exists, plan_location, xpath_node, plan_xpath = process_plan_for_service(
             logger, kp_input, service_groups.services_xpath, uinfo)
+    plan_kpath = None
     if plan_exists is not False:
         plan_ready = nano_service_ready(logger, uinfo, trans, plan_location, 
                                           sock_maapi, MAX_SERVICE_READY_WAIT_TIME, 
                                           SERVICE_READY_SLEEP_TIME)
+        plan_kpath = _ncs.maapi.xpath2keypath(trans.maapi.msock, trans.th, plan_xpath)
         
     # Capture modifications for the service before any changes  
     capture_modifications_for_service(trans, uinfo, kp_input, files)
@@ -648,9 +652,34 @@ def _capture_config_impl(logger, uinfo, folder_path: str, packages_folder_path: 
                                         "%s_after.xml" % (device))]
     handle_final_service_readiness_check(logger, trans, kp_input, service_groups, uinfo, sock_maapi)
 
-    # Service Modify flow below, store service config, CDB and device config
-    # Before first, After when modified configuration has been applied
-    
-
-    function_result = True
-    return function_result, files.service_config_modify, files
+    has_parent, parent_path = get_parent(logger, uinfo, trans, kp_input, service_groups.services_list)
+    logger.info("Generating Robot file")
+    robot_service = None
+    robot_service_modify = None
+    if should_run_modify_workflow(config_params):
+        robot_service_modify = RobotService(logger,
+                                        kp_input,
+                                        parent_path,
+                                        xpath_node,
+                                        plan_xpath,
+                                        plan_kpath,
+                                        files,
+                                        devices_diff_list,
+                                        pre_config_files,
+                                        pre_config_devices,
+                                        pre_config_xpaths,
+                                        config_params.no_networking)
+    else:
+        robot_service = RobotService(logger,
+                                kp_input,
+                                parent_path,
+                                xpath_node,
+                                plan_xpath,
+                                plan_kpath,
+                                files,
+                                devices_diff_list,
+                                pre_config_files,
+                                pre_config_devices,
+                                pre_config_xpaths,
+                                config_params.no_networking)
+    return files.service_config_modify, files, robot_service, robot_service_modify

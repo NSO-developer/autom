@@ -822,12 +822,13 @@ def get_parent(logger, uinfo, trans, path, services_list):
                             [])
     for keypath in parent_services:
         kp_node = ncs.maagic.get_node(trans, keypath)
-
+        
         for kpath in kp_node.private.service_list:
             path_node = ncs.maagic.get_node(trans, path)
             kpath_node = ncs.maagic.get_node(trans, kpath)
-
-            if kpath_node._path == path_node._path:
+            if kp_node._path == path_node._path:
+                continue
+            elif kpath_node._path == path_node._path:
                 return True, kp_node._path
 
     for keypath in top_level_services:
@@ -836,8 +837,9 @@ def get_parent(logger, uinfo, trans, path, services_list):
         for kpath in kp_node.private.service_list:
             path_node = ncs.maagic.get_node(trans, path)
             kpath_node = ncs.maagic.get_node(trans, kpath)
-
-            if kpath_node._path == path_node._path:
+            if kp_node._path == path_node._path:
+                return False, None
+            elif kpath_node._path == path_node._path:
                 return True, kp_node._path
     return False, None
 def get_top_level_parent(logger, uinfo, trans, path, services_list):

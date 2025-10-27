@@ -31,10 +31,10 @@ class Folders():
         self.dry_run_modify_xml = ""
         self.dry_run_modify_cli = ""
         self.dry_run_native = ""
-        self.get_modif_file_xml = ""
-        self.get_modif_file_cli = ""
-        self.get_modif_modify_file_xml = ""
-        self.get_modif_modify_file_cli = ""
+        self.get_modifications_file_xml = ""
+        self.get_modifications_file_cli = ""
+        self.get_modifications_modify_file_xml = ""
+        self.get_modifications_modify_file_cli = ""
         self.config_after_file_xml = ""
         self.config_before_file_xml = ""
         self.service_config_after_file_xml = ""
@@ -59,7 +59,7 @@ class Folders():
                                              "cdb_after.%s" % extension)
         self.config_before_file_xml = os.path.join(self.output_folder,
                                               "cdb_before.%s" % extension)
-        self.get_modif_file_xml = os.path.join(self.output_folder,
+        self.get_modifications_file_xml = os.path.join(self.output_folder,
                                  "get_modifications.%s" % extension)
         self.get_modifications_modify_file_xml = os.path.join(self.output_folder,
                                  "get_modifications_modify.%s" % extension)
@@ -76,7 +76,7 @@ class Folders():
                                                    "cdb_after.%s" % extension)
         self.config_before_file_clean_cli = os.path.join(
             self.output_folder, "cdb_before.%s" % extension)
-        self.get_modif_file_cli = os.path.join(self.output_folder,
+        self.get_modifications_file_cli = os.path.join(self.output_folder,
                                             "get_modifications.%s" % extension)
         self.cdb_diff_file_cli = os.path.join(self.output_folder,
                                             "cdb_diff.%s" % extension)

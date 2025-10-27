@@ -1,0 +1,195 @@
+{% if add_to_previous == False %}
+# To execute this file the ROBOT Framework is required. 
+#   robot {{test_suite_file_name}}
+# Notes:
+# - This command must be executed in the folder containing this robot file.
+# - The nso_config.yaml file must be in the same folder as this robot file.
+*** Settings ***
+Library    RequestsLibrary
+Library    Collections
+Library    OperatingSystem
+Library    SSHLibrary
+Library    utils/diff_config.py
+Resource    utils/lib_nso_connection.robot
+Resource    utils/lib_restconf_calls.robot
+Resource    utils/lib_service_calls.robot
+Resource    utils/lib_file_handler.robot
+Library    XML
+Variables  nso_config.yaml
+Suite Setup       Setup Test Suite
+Suite Teardown    Teardown NSO RESTCONF Session
+
+
+Documentation    SERVICE TESTING CREATE/READ/UPDATE/DELETE
+...   {{test_case_description}}
+
+
+*** Variables ***
+${BASE_URL}   ${nso_server.http_version}://${nso_server.host}:${nso_server.http_port}/restconf/data
+${service_was_present}  ${True}
+${collect_forward_diff_was_enabled}  ''
+${alias}   CLI
+
+*** Keywords ***
+
+Teardown NSO RESTCONF Session
+    [Documentation]    Closes the RESTCONF session after all tests are done.
+    Delete All Sessions
+    Log To Console    NSO RESTCONF session(s) deleted.
+
+Setup Test Suite
+    [Documentation]  Keyword to set up the suite by connecting to the NSO server,
+    ...              Connect to NSO, and enable collect-forward-diff
+    Enable Collect Forward Diff
+    Set Headers for xml
+    Setup NSO RESTCONF Session with xml
+
+*** Test Cases ***
+{% endif %}
+{% for service in services %}{% for device, value in service.device_data.items() %}{% if device in service.pre_config_devices %}
+Preconfiguring device {{device}} for {{service.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  Load config from xml file {{value[5]}}
+{% endif %}{% endfor %}{% for key, value in service.pre_config_data.items() %}
+Preconfiguring NSO {{key}} for {{service.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  Load config from xml file {{value}}
+{% endfor %}
+Creating Service {{service.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{service.service_path}}
+  [Documentation]  Creating a Service Instance for {{service.service_path}}
+  ${service_present}=  Is service with path ${BASE_URL}{{service.service_path}} present on NSO
+  Set Global Variable  ${service_was_present}  ${service_present}
+  Run keyword if  ${service_was_present} == ${True}  Delete service with path ${BASE_URL}{{service.service_path}}
+  Load config from xml file {{service.service_config}}
+Validating Service {{service.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{service.service_path}}
+  [Documentation]  Validate the Service Instance for {{service.service_path}}
+  ${modifs}=  Run Action Get-Modifications xml on NSO using XML payload with path ${BASE_URL}{{service.service_path}}
+  ${modifs}=  Evaluate  re.findall('(<data>.*</data>)', """${modifs}""", re.DOTALL)[0]  re
+  Log  ${modifs}
+  Compare xml {{service.get_modifications_file_xml}} to ${modifs}
+Validating Service Dry-run XML for {{service.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{service.service_path}}
+  [Documentation]  Verifying dry-run for creating a Serviceinstance {{service.service_path}}
+  ${service_present}=  Is service with path ${BASE_URL}{{service.service_path}} present on NSO
+  Run keyword if  ${service_present} == ${True}  Delete service with path ${BASE_URL}{{service.service_path}}
+  ${output}=    Dry-run xml on NSO using xml payload file {{service.service_config}}
+  ${output}=  Evaluate  re.findall('(<data>.*</data>)', """${output}""", re.DOTALL)[0]  re
+  ${output}=  Evaluate  re.sub('<data>\\n', '<data>', """${output}""")  re
+  ${output}=  Evaluate  re.sub('<data>\\n', '<data>', """${output}""")  re
+  ${output}=  Evaluate  re.sub('\\n[ ]+?<', '<', """${output}""", flags=re.MULTILINE)  re
+  ${output}=  Evaluate  re.sub('\\n', '', """${output}""", flags=re.MULTILINE)  re
+  Log  ${output}
+  Run keyword if  ${service_present} == ${True}    Load config from xml file {{service.service_config}}
+  ${expected_diff}=  OperatingSystem.Get File  {{service.dry_run_xml}}
+  ${expected_diff}=  Evaluate  re.findall('(<data>.*</data>)', """${expected_diff}""", re.DOTALL)[0]  re
+  ${expected_diff}=  Evaluate  re.sub('<data>\\n', '<data>', """${expected_diff}""")  re
+  ${expected_diff}=  Evaluate  re.sub('\\n[ ]+?<', '<', """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub('\\n', '', """${expected_diff}""", flags=re.MULTILINE)  re
+  Log  ${expected_diff}
+  Compare xml ${expected_diff} to ${output}
+{% if service.outformat_cli_c == True %}Validating Service Dry-run CLI-C for {{service.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{service.service_path}}
+  [Documentation]  Verifying dry-run for creating a service instance {{service.service_path}}
+  ${service_present}=  Is service with path ${BASE_URL}{{service.service_path}} present on NSO
+  Run keyword if  ${service_present} == ${True}  Delete service with path ${BASE_URL}{{service.service_path}}
+  ${modifs}=    Dry-run cli-c on NSO using xml payload file {{service.service_config}}
+  ${modifs}=  Evaluate  re.findall('(<data>.*</data>)', """${modifs}""", re.DOTALL)[0]  re
+  ${modifs}=  Evaluate  re.sub('<[/]*data.*>', '', """${modifs}""")  re
+  ${modifs}=  Evaluate  re.sub('^\\n|\\n$', '', """${modifs}""", flags=re.MULTILINE)  re
+  ${modifs}=  Evaluate  re.sub("""\\n""", """\n""", """${modifs}""", flags=re.MULTILINE)  re
+  ${modifs}=  Evaluate  re.sub("""\\t""", """\t""", """${modifs}""", flags=re.MULTILINE)  re
+  Log  ${modifs}
+  Run keyword if  ${service_present} == ${True}    Load config from xml file {{service.service_config}}
+  ${expected_diff}=  OperatingSystem.Get File  {{service.dry_run_cli}}
+  ${expected_diff}=  Evaluate  re.sub('<config xmlns="http://tail-f.com/ns/config/1.0">', '<data>', """${expected_diff}""")  re
+  ${expected_diff}=  Evaluate  re.sub('\\n</config>', '\\n</data>', """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub("""\\n""", """\n""", """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub("""\\t""", """\t""", """${expected_diff}""", flags=re.MULTILINE)  re
+  Log  ${expected_diff}
+  Verify Two Files Have No Differences ${expected_diff} ${modifs}{% endif %}
+Deleting Service {{service.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{service.service_path}}
+  [Documentation]  Deleting the Service Instance {{service.service_path}}
+  Run keyword if  ${service_was_present} == ${False}  Delete service with path ${BASE_URL}{{service.service_path}}
+{% endfor %}
+{% for posmodif in service_modify_list %}
+Positive modification {{loop.index}} Validating Service Modification Dry-run XML for {{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Verifying dry-run for modifying a service instance {{posmodif.service_path}}
+  ${service_present}=  Is service with path ${BASE_URL}{{posmodif.service_path}} present on NSO
+  Run keyword if  ${service_present} == ${False}  Load config from xml file {{posmodif.service_config}}
+  ${output}=    Dry-run xml on NSO using xml payload file {{posmodif.service_config_modify}}
+  ${output}=  Evaluate  re.findall('(<data>.*</data>)', """${output}""", re.DOTALL)[0]  re
+  ${output}=  Evaluate  re.sub('<data>\\n', '<data>', """${output}""")  re
+  ${output}=  Evaluate  re.sub('<data>\\n', '<data>', """${output}""")  re
+  ${output}=  Evaluate  re.sub('\\n[ ]+?<', '<', """${output}""", flags=re.MULTILINE)  re
+  ${output}=  Evaluate  re.sub('\\n', '', """${output}""", flags=re.MULTILINE)  re
+  Log  ${output}
+  ${expected_diff}=  OperatingSystem.Get File  {{posmodif.dry_run_modify_xml}}
+  ${expected_diff}=  Evaluate  re.findall('(<data>.*</data>)', """${expected_diff}""", re.DOTALL)[0]  re
+  ${expected_diff}=  Evaluate  re.sub('<data>\\n', '<data>', """${expected_diff}""")  re
+  ${expected_diff}=  Evaluate  re.sub('\\n[ ]+?<', '<', """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub('\\n', '', """${expected_diff}""", flags=re.MULTILINE)  re
+  Log  ${expected_diff}
+  Compare xml ${expected_diff} to ${output}
+Positive modification {{loop.index}} Validating Service Modification Dry-run CLI-C for {{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Verifying dry-run for creating a service instance {{posmodif.service_path}}
+  ${service_present}=  Is service with path ${BASE_URL}{{posmodif.service_path}} present on NSO
+  Run keyword if  ${service_present} == ${False}  Load config from xml file {{posmodif.service_config}}
+  ${modifs}=    Dry-run cli-c on NSO using xml payload file {{posmodif.service_config_modify}}
+  ${modifs}=  Evaluate  re.findall('(<data>.*</data>)', """${modifs}""", re.DOTALL)[0]  re
+  ${modifs}=  Evaluate  re.sub('<[/]*data.*>', '', """${modifs}""")  re
+  ${modifs}=  Evaluate  re.sub('^\\n|\\n$', '', """${modifs}""", flags=re.MULTILINE)  re
+  ${modifs}=  Evaluate  re.sub("""\\n""", """\n""", """${modifs}""", flags=re.MULTILINE)  re
+  ${modifs}=  Evaluate  re.sub("""\\t""", """\t""", """${modifs}""", flags=re.MULTILINE)  re
+  Log  ${modifs}
+  ${expected_diff}=  OperatingSystem.Get File  {{posmodif.dry_run_modify_cli}}
+  ${expected_diff}=  Evaluate  re.sub('<config xmlns="http://tail-f.com/ns/config/1.0">', '<data>', """${expected_diff}""")  re
+  ${expected_diff}=  Evaluate  re.sub('\\n</config>', '\\n</data>', """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub("""\\n""", """\n""", """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub("""\\t""", """\t""", """${expected_diff}""", flags=re.MULTILINE)  re
+  Log  ${expected_diff}
+  Verify Two Files Have No Differences ${expected_diff} ${modifs}
+Positive modification {{loop.index}} Modifying Service {{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Modifying a Service Instance for {{posmodif.service_path}}
+  Load config from xml file {{posmodif.service_config_modify}}
+Positive modification {{loop.index}} Validating Service CLI-C{{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Validate the Service Instance for {{posmodif.service_path}}
+  ${modifs}=  Run Action Get-Modifications cli-c on NSO using XML payload with path ${BASE_URL}{{posmodif.service_path}}
+  ${modifs}=  Evaluate  re.findall('(<data>.*</data>)', """${modifs}""", re.DOTALL)[0]  re
+  ${modifs}=  Evaluate  re.sub('<[/]*data.*>', '', """${modifs}""")  re
+  ${modifs}=  Evaluate  re.sub('^\\n|\\n$', '', """${modifs}""", flags=re.MULTILINE)  re
+  ${modifs}=  Evaluate  re.sub("""\\n""", """\n""", """${modifs}""", flags=re.MULTILINE)  re
+  ${modifs}=  Evaluate  re.sub("""\\t""", """\t""", """${modifs}""", flags=re.MULTILINE)  re
+  Log  ${modifs}
+  ${expected_diff}=  OperatingSystem.Get File  {{posmodif.get_modifications_modify_file_cli}}
+  ${expected_diff}=  Evaluate  re.sub('<config xmlns="http://tail-f.com/ns/config/1.0">', '<data>', """${expected_diff}""")  re
+  ${expected_diff}=  Evaluate  re.sub('\\n</config>', '\\n</data>', """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub("""\\n""", """\n""", """${expected_diff}""", flags=re.MULTILINE)  re
+  ${expected_diff}=  Evaluate  re.sub("""\\t""", """\t""", """${expected_diff}""", flags=re.MULTILINE)  re
+  Verify Two Files Have No Differences ${modifs} ${expected_diff}
+Positive modification {{loop.index}} Validating Service XML{{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Validate the Service Instance for {{posmodif.service_path}}
+  ${modifs}=  Run Action Get-Modifications xml on NSO using XML payload with path ${BASE_URL}{{posmodif.service_path}}
+  ${modifs}=  Evaluate  re.findall('(<data>.*</data>)', """${modifs}""", re.DOTALL)[0]  re
+  Log  ${modifs}
+  Compare xml ${modifs} to {{posmodif.get_modifications_modify_file_xml}}
+Positive modification {{loop.index}} Deleting Service {{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Deleting the Service Instance for {{posmodif.service_path}}
+  Delete service with path ${BASE_URL}{{posmodif.service_path}}
+Positive modification {{loop.index}} Recreating original Service {{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Creating Original Service Instance {{posmodif.service_path}}
+  Load config from xml file {{posmodif.service_config}}
+Deleting Service {{posmodif.service_path}}{% if add_to_previous == True %} ({{datetime}}){% endif %}
+  [Tags]  {{test_case_description}}  {{posmodif.service_path}}
+  [Documentation]  Deleting the Service Instance {{posmodif.service_path}}
+  Run keyword if  ${service_was_present} == ${False}  Delete service with path ${BASE_URL}{{posmodif.service_path}}
+  {% endfor %}
+
+
